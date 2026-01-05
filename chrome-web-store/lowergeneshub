@@ -1,0 +1,771 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+
+-- PARENTING
+local parentObject = (gethui and gethui()) or CoreGui:FindFirstChild("RobloxGui") or CoreGui
+
+-- SETTINGS
+local WHITELIST = {}
+local flyEnabled, masterActive, noclipEnabled = false, false, false
+local stickyTarget = nil
+local flySpeed = 90
+local AIM_FOV = 200 
+local CORRECT_KEY = "T9!qR7$ZL@3mK#Ew2^F"
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local noclipConnection
+
+-- =====================
+-- FOV CIRCLE
+-- =====================
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.Color = Color3.fromRGB(255, 0, 50)
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+FOVCircle.Visible = false
+FOVCircle.Radius = AIM_FOV
+
+-- =====================
+-- KEY SYSTEM UI
+-- =====================
+local keyGui = Instance.new("ScreenGui", parentObject)
+keyGui.Name = "LowerGenesKeySystem"
+
+local keyMain = Instance.new("Frame", keyGui)
+keyMain.Size = UDim2.fromOffset(380, 230)
+keyMain.Position = UDim2.new(0.5, -190, 0.5, -115)
+keyMain.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+keyMain.BorderSizePixel = 0
+Instance.new("UICorner", keyMain).CornerRadius = UDim.new(0, 6)
+
+local keyBorder = Instance.new("UIStroke", keyMain)
+keyBorder.Color = Color3.fromRGB(200, 40, 40)
+keyBorder.Thickness = 2
+
+local keyTitle = Instance.new("TextLabel", keyMain)
+keyTitle.Size = UDim2.new(1, 0, 0, 60)
+keyTitle.Text = "ENTER KEY TO CONTINUE"
+keyTitle.TextColor3 = Color3.new(1, 1, 1)
+keyTitle.Font = Enum.Font.Gotham
+keyTitle.TextSize = 20
+keyTitle.BackgroundTransparency = 1
+
+local keyInput = Instance.new("TextBox", keyMain)
+keyInput.Size = UDim2.new(0.85, 0, 0, 48)
+keyInput.Position = UDim2.new(0.075, 0, 0.42, 0)
+keyInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+keyInput.TextColor3 = Color3.new(1, 1, 1)
+keyInput.PlaceholderText = "Enter Key..."
+keyInput.Font = Enum.Font.Gotham
+keyInput.TextSize = 16
+keyInput.ClearTextOnFocus = false
+Instance.new("UICorner", keyInput).CornerRadius = UDim.new(0, 6)
+
+local submitBtn = Instance.new("TextButton", keyMain)
+submitBtn.Size = UDim2.new(0.85, 0, 0, 48)
+submitBtn.Position = UDim2.new(0.075, 0, 0.7, 0)
+submitBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+submitBtn.TextColor3 = Color3.new(1, 1, 1)
+submitBtn.Text = "SUBMIT"
+submitBtn.Font = Enum.Font.Gotham
+submitBtn.TextSize = 16
+Instance.new("UICorner", submitBtn).CornerRadius = UDim.new(0, 6)
+
+-- =====================
+-- MAIN UI
+-- =====================
+local mainGui = Instance.new("ScreenGui", parentObject)
+mainGui.Enabled = false 
+mainGui.Name = "LowerGenesV1.0"
+
+local main = Instance.new("Frame", mainGui)
+main.Size = UDim2.fromOffset(300, 460)
+main.Position = UDim2.new(1, -320, 0.5, -230)
+main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+main.Active, main.Draggable = true, true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 😎
+
+local border = Instance.new("UIStroke", main)
+border.Color = Color3.fromRGB(200, 40, 40)
+border.Thickness = 2
+
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1, 0, 0, 60)
+title.Text = "LOWERGENES V1.0"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.Gotham
+title.TextSize = 20
+title.BackgroundTransparency = 1
+
+-- =====================
+-- UTILITIES
+-- =====================
+local function isWhitelisted(plr) return WHITELIST[plr.UserId] == true end
+
+local function isVisible(targetPart)
+    local origin = camera.CFrame.Position
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {player.Character, targetPart.Parent}
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    return workspace:Raycast(origin, targetPart.Position - origin, params) == nil 
+end
+
+-- =====================
+-- ESP REFRESHER
+-- =====================
+local function manageESP(state)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local existing = plr.Character:FindFirstChild("LowerGenesESP")
+            if state and not isWhitelisted(plr) then
+                if not existing then
+                    local h = Instance.new("Highlight", plr.Character)
+                    h.Name = "LowerGenesESP"
+                    h.FillColor = Color3.fromRGB(255, 0, 50)
+                    h.OutlineColor = Color3.new(1,1,1)
+                    h.FillTransparency = 0.5
+                    h.Adornee = plr.Character
+                end
+            elseif existing then 
+                existing:Destroy() 
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if masterActive then manageESP(true) end
+    end
+end)
+
+-- =====================
+-- NOCLIP HANDLER
+-- =====================
+local function setNoclip(state)
+    noclipEnabled = state
+    noclipBtn.Text = "NOCLIP (N): " .. (noclipEnabled and "ON" or "OFF")
+    noclipBtn.BackgroundColor3 = noclipEnabled and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(25, 25, 25)
+    
+    if noclipEnabled then
+        if not noclipConnection then
+            noclipConnection = RunService.Stepped:Connect(function()
+                if player.Character then
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end)
+        end
+    else
+        if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
+    end
+end
+
+local function toggleNoclip() setNoclip(not noclipEnabled) end
+
+-- =====================
+-- FLY HANDLER
+-- =====================
+local function toggleFly()
+    flyEnabled = not flyEnabled
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if flyEnabled and root and hum then
+        local bv = Instance.new("BodyVelocity", root); bv.Name = "P_FlyVel"; bv.MaxForce = Vector3.new(1e8, 1e8, 1e8)
+        local bg = Instance.new("BodyGyro", root); bg.Name = "P_FlyGyro"; bg.MaxTorque = Vector3.new(1e8, 1e8, 1e8)
+        hum.PlatformStand = true
+    elseif root then
+        if root:FindFirstChild("P_FlyVel") then root.P_FlyVel:Destroy() end
+        if root:FindFirstChild("P_FlyGyro") then root.P_FlyGyro:Destroy() end
+        if hum then hum.PlatformStand = false end
+    end
+    flyBtn.Text = "FLY (F): " .. (flyEnabled and "ON" or "OFF")
+end
+
+-- =====================
+-- MASTER HANDLER
+-- =====================
+local function toggleMaster()
+    masterActive = not masterActive
+    manageESP(masterActive)
+    masterBtn.Text = "MASTER (Q): " .. (masterActive and "ON" or "OFF")
+    masterBtn.BackgroundColor3 = masterActive and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(25, 25, 25)
+end
+
+-- =====================
+-- KEY SUBMIT
+-- =====================
+submitBtn.MouseButton1Click:Connect(function()
+    if keyInput.Text == CORRECT_KEY then
+        keyGui:Destroy()
+        mainGui.Enabled = true
+    else
+        keyInput.Text = ""
+        keyInput.PlaceholderText = "WRONG KEY!"
+        task.wait(1)
+        keyInput.PlaceholderText = "Enter Key..."
+    end
+end)
+
+-- =====================
+-- CREATE UI BUTTONS
+-- =====================
+local function createBtn(text, y)
+    local b = Instance.new("TextButton", main)
+    b.Size, b.Position = UDim2.new(0.9, 0, 0, 40), UDim2.new(0.05, 0, 0, y)
+    b.BackgroundColor3, b.TextColor3, b.Font, b.Text, b.TextSize = Color3.fromRGB(30, 30, 30), Color3.new(1, 1, 1), Enum.Font.Gotham, text, 14
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    return b
+end
+
+flyBtn = createBtn("FLY (F): OFF", 65)
+masterBtn = createBtn("MASTER (Q): OFF", 115)
+noclipBtn = createBtn("NOCLIP (N): OFF", 165)
+
+flyBtn.MouseButton1Click:Connect(toggleFly)
+masterBtn.MouseButton1Click:Connect(toggleMaster)
+noclipBtn.MouseButton1Click:Connect(toggleNoclip)
+
+-- =====================
+-- PLAYER LIST / STICK LOGIC
+-- =====================
+local listLabel = Instance.new("TextLabel", main)
+listLabel.Size, listLabel.Position = UDim2.new(0.9, 0, 0, 30), UDim2.new(0.05, 0, 0, 220)
+listLabel.Text = "PLAYER LIST (STICK):"
+listLabel.TextColor3, listLabel.Font, listLabel.TextSize, listLabel.BackgroundTransparency = Color3.new(1,1,1), Enum.Font.Gotham, 12, 1
+
+local scroll = Instance.new("ScrollingFrame", main)
+scroll.Size, scroll.Position = UDim2.new(0.9, 0, 0, 160), UDim2.new(0.05, 0, 0, 250)
+scroll.BackgroundColor3, scroll.BorderSizePixel, scroll.CanvasSize = Color3.fromRGB(20, 20, 20), 0, UDim2.new(0, 0, 0, 0)
+scroll.ScrollBarThickness = 3
+Instance.new("UICorner", scroll)
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 5)
+
+local function updateList()
+    for _, v in ipairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            local container = Instance.new("Frame", scroll)
+            container.Size = UDim2.new(1, -10, 0, 35)
+            container.BackgroundTransparency = 1
+            
+            local nameBtn = Instance.new("TextButton", container)
+            nameBtn.Size = UDim2.new(0.65, 0, 1, 0)
+            nameBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            nameBtn.Text = plr.Name
+            nameBtn.Font, nameBtn.TextSize, nameBtn.TextColor3 = Enum.Font.Gotham, 11, Color3.new(1,1,1)
+            Instance.new("UICorner", nameBtn)
+            
+            local stickBtn = Instance.new("TextButton", container)
+            stickBtn.Size = UDim2.new(0.3, 0, 1, 0)
+            stickBtn.Position = UDim2.new(0.7, 0, 0, 0)
+            stickBtn.BackgroundColor3 = (stickyTarget == plr) and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(45, 45, 45)
+            stickBtn.Text = "STICK"
+            stickBtn.Font, stickBtn.TextSize, stickBtn.TextColor3 = Enum.Font.Gotham, 10, Color3.new(1,1,1)
+            Instance.new("UICorner", stickBtn)
+
+            nameBtn.MouseButton1Click:Connect(function()
+                WHITELIST[plr.UserId] = not WHITELIST[plr.UserId]
+                nameBtn.TextColor3 = isWhitelisted(plr) and Color3.fromRGB(0, 255, 128) or Color3.new(1,1,1)
+                manageESP(masterActive)
+            end)
+
+            stickBtn.MouseButton1Click:Connect(function()
+                if stickyTarget == plr then
+                    stickyTarget = nil
+                    setNoclip(false)
+                else
+                    stickyTarget = plr
+                    setNoclip(true)
+                end
+                updateList()
+            end)
+        end
+    end
+    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+end
+
+Players.PlayerAdded:Connect(updateList); Players.PlayerRemoving:Connect(updateList)
+updateList()
+
+-- =====================
+-- INPUTS
+-- =====================
+UserInputService.InputBegan:Connect(function(i, gp)
+    if gp or not mainGui.Enabled then return end
+    if i.KeyCode == Enum.KeyCode.F then toggleFly()
+    elseif i.KeyCode == Enum.KeyCode.Q then toggleMaster() 
+    elseif i.KeyCode == Enum.KeyCode.N then toggleNoclip() end
+end)
+
+-- =====================
+-- MAIN LOOP
+-- =====================
+RunService:BindToRenderStep("LowerGenesUpdate", Enum.RenderPriority.Camera.Value + 1, function()
+    if mainGui.Enabled and masterActive then
+        FOVCircle.Visible = true
+        FOVCircle.Position = UserInputService:GetMouseLocation()
+    else
+        FOVCircle.Visible = false
+    end
+
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    -- Stick Logic
+    if stickyTarget and stickyTarget.Character and stickyTarget.Character:FindFirstChild("HumanoidRootPart") then
+        local tRoot = stickyTarget.Character.HumanoidRootPart
+        root.CFrame = tRoot.CFrame * CFrame.new(0, 0, 3)
+    elseif stickyTarget then
+        stickyTarget = nil
+        setNoclip(false)
+    end
+
+    -- Fly movement
+    if flyEnabled and root:FindFirstChild("P_FlyVel") then
+        local dir = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += camera.CFrame.RightVector end
+        root.P_FlyVel.Velocity, root.P_FlyGyro.CFrame = dir * flySpeed, camera.CFrame
+    end
+
+    -- Aimbot Logic
+    if masterActive and not stickyTarget then
+        local target, shortest = nil, AIM_FOV
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and not isWhitelisted(plr) and plr.Character and plr.Character:FindFirstChild("Head") then
+                local head = plr.Character.Head
+                local pos, onScreen = camera:WorldToViewportPoint(head.Position)
+                if onScreen and isVisible(head) then
+                    local dist = (Vector2.new(pos.X, pos.Y) - UserInputService:GetMouseLocation()).Magnitude
+                    if dist < shortest then shortest, target = dist, head end
+                end
+            end
+        end
+        if target then
+            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target.Position)
+            root.CFrame = CFrame.lookAt(root.Position, Vector3.new(target.Position.X, root.Position.Y, target.Position.Z))
+        end
+    end
+end)
+Amart
+Amart
+Amart
+Amart
+Amart
+Amart
+-- SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+-- PARENTING
+local parentObject = (gethui and gethui()) or CoreGui:FindFirstChild("RobloxGui") or CoreGui
+
+-- SETTINGS
+local WHITELIST = {}
+local flyEnabled, masterActive, noclipEnabled = false, false, false
+local stickyTarget = nil
+local flySpeed = 90
+local AIM_FOV = 200 
+local CORRECT_KEY = "amartgwapo"
+local guiEnabled = false -- Track main GUI visibility
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local noclipConnection
+
+-- =====================
+-- FOV CIRCLE
+-- =====================
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.Color = Color3.fromRGB(255, 0, 50)
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+FOVCircle.Visible = false
+FOVCircle.Radius = AIM_FOV
+
+-- =====================
+-- KEY SYSTEM UI
+-- =====================
+local keyGui = Instance.new("ScreenGui", parentObject)
+keyGui.Name = "LowerGenesKeySystem"
+
+local keyMain = Instance.new("Frame", keyGui)
+keyMain.Size = UDim2.fromOffset(380, 230)
+keyMain.Position = UDim2.new(0.5, -190, 0.5, -115)
+keyMain.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Instance.new("UICorner", keyMain).CornerRadius = UDim.new(0, 6)
+
+local keyBorder = Instance.new("UIStroke", keyMain)
+keyBorder.Color = Color3.fromRGB(200, 40, 40)
+keyBorder.Thickness = 2
+
+local keyTitle = Instance.new("TextLabel", keyMain)
+keyTitle.Size = UDim2.new(1, 0, 0, 60)
+keyTitle.Text = "ENTER KEY TO CONTINUE"
+keyTitle.TextColor3 = Color3.new(1, 1, 1)
+keyTitle.Font = Enum.Font.Gotham
+keyTitle.TextSize = 20
+keyTitle.BackgroundTransparency = 1
+
+local keyInput = Instance.new("TextBox", keyMain)
+keyInput.Size = UDim2.new(0.85, 0, 0, 48)
+keyInput.Position = UDim2.new(0.075, 0, 0.42, 0)
+keyInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+keyInput.TextColor3 = Color3.new(1, 1, 1)
+keyInput.PlaceholderText = "Enter Key..."
+keyInput.Font = Enum.Font.Gotham
+keyInput.TextSize = 16
+keyInput.ClearTextOnFocus = false
+keyInput.Text = ""
+Instance.new("UICorner", keyInput).CornerRadius = UDim.new(0, 6)
+
+local submitBtn = Instance.new("TextButton", keyMain)
+submitBtn.Size = UDim2.new(0.85, 0, 0, 48)
+submitBtn.Position = UDim2.new(0.075, 0, 0.7, 0)
+submitBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+submitBtn.TextColor3 = Color3.new(1, 1, 1)
+submitBtn.Text = "SUBMIT"
+submitBtn.Font = Enum.Font.Gotham
+submitBtn.TextSize = 16
+Instance.new("UICorner", submitBtn).CornerRadius = UDim.new(0, 6)
+
+-- =====================
+-- MAIN UI
+-- =====================
+local mainGui = Instance.new("ScreenGui", parentObject)
+mainGui.Enabled = false 
+mainGui.Name = "LowerGenesV1.0"
+
+local main = Instance.new("Frame", mainGui)
+main.Size = UDim2.fromOffset(300, 460)
+main.Position = UDim2.new(0.5, -150, 0.5, -230)
+main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+main.Active, main.Draggable = true, true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 😎
+
+local border = Instance.new("UIStroke", main)
+border.Color = Color3.fromRGB(200, 40, 40)
+border.Thickness = 2
+
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1, 0, 0, 60)
+title.Text = "LOWERGENES V1.0"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.Gotham
+title.TextSize = 20
+title.BackgroundTransparency = 1
+
+-- Close button
+local closeBtn = Instance.new("TextButton", main)
+closeBtn.Size = UDim2.new(0, 30, 0, 30)
+closeBtn.Position = UDim2.new(1, -35, 0, 5)
+closeBtn.Text = "X"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
+
+closeBtn.MouseButton1Click:Connect(function()
+    mainGui.Enabled = false
+    guiEnabled = false
+    reopenBtn.Visible = true -- Show reopen button when closed
+end)
+
+-- Reopen button
+local reopenBtn = Instance.new("TextButton", parentObject)
+reopenBtn.Size = UDim2.new(0, 100, 0, 30)
+reopenBtn.Position = UDim2.new(0.5, -50, 0.95, -35)
+reopenBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+reopenBtn.TextColor3 = Color3.new(1,1,1)
+reopenBtn.Text = "OPEN GUI"
+reopenBtn.Font = Enum.Font.Gotham
+reopenBtn.TextSize = 14
+Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(0, 4)
+reopenBtn.Visible = false
+
+reopenBtn.MouseButton1Click:Connect(function()
+    mainGui.Enabled = true
+    guiEnabled = true
+    reopenBtn.Visible = false
+end)
+
+-- =====================
+-- UTILITIES
+-- =====================
+local function isWhitelisted(plr) return WHITELIST[plr.UserId] == true end
+local function isVisible(targetPart)
+    local origin = camera.CFrame.Position
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = {player.Character, targetPart.Parent}
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    return workspace:Raycast(origin, targetPart.Position - origin, params) == nil 
+end
+
+-- =====================
+-- ESP REFRESHER
+-- =====================
+local function manageESP(state)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            local existing = plr.Character:FindFirstChild("LowerGenesESP")
+            if state and not isWhitelisted(plr) then
+                if not existing then
+                    local h = Instance.new("Highlight", plr.Character)
+                    h.Name = "LowerGenesESP"
+                    h.FillColor = Color3.fromRGB(255, 0, 50)
+                    h.OutlineColor = Color3.new(1,1,1)
+                    h.FillTransparency = 0.5
+                    h.Adornee = plr.Character
+                end
+            elseif existing then 
+                existing:Destroy() 
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(1) do
+        if masterActive then manageESP(true) end
+    end
+end)
+
+-- =====================
+-- NOCLIP HANDLER
+-- =====================
+local function setNoclip(state)
+    noclipEnabled = state
+    noclipBtn.Text = "NOCLIP (N): " .. (noclipEnabled and "ON" or "OFF")
+    noclipBtn.BackgroundColor3 = noclipEnabled and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(25, 25, 25)
+    
+    if noclipEnabled then
+        if not noclipConnection then
+            noclipConnection = RunService.Stepped:Connect(function()
+                if player.Character then
+                    for _, part in pairs(player.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then part.CanCollide = false end
+                    end
+                end
+            end)
+        end
+    else
+        if noclipConnection then noclipConnection:Disconnect(); noclipConnection = nil end
+    end
+end
+
+local function toggleNoclip() setNoclip(not noclipEnabled) end
+
+-- =====================
+-- FLY HANDLER
+-- =====================
+local function toggleFly()
+    flyEnabled = not flyEnabled
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if flyEnabled and root and hum then
+        local bv = Instance.new("BodyVelocity", root); bv.Name = "P_FlyVel"; bv.MaxForce = Vector3.new(1e8, 1e8, 1e8)
+        local bg = Instance.new("BodyGyro", root); bg.Name = "P_FlyGyro"; bg.MaxTorque = Vector3.new(1e8, 1e8, 1e8)
+        hum.PlatformStand = true
+    elseif root then
+        if root:FindFirstChild("P_FlyVel") then root.P_FlyVel:Destroy() end
+        if root:FindFirstChild("P_FlyGyro") then root.P_FlyGyro:Destroy() end
+        if hum then hum.PlatformStand = false end
+    end
+    flyBtn.Text = "FLY (F): " .. (flyEnabled and "ON" or "OFF")
+end
+
+-- =====================
+-- MASTER HANDLER
+-- =====================
+local function toggleMaster()
+    masterActive = not masterActive
+    manageESP(masterActive)
+    masterBtn.Text = "MASTER (Q): " .. (masterActive and "ON" or "OFF")
+    masterBtn.BackgroundColor3 = masterActive and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(25, 25, 25)
+end
+
+-- =====================
+-- KEY SUBMIT
+-- =====================
+submitBtn.MouseButton1Click:Connect(function()
+    if keyInput.Text == CORRECT_KEY then
+        keyGui:Destroy()
+        mainGui.Enabled = true
+        guiEnabled = true
+    else
+        keyInput.Text = ""
+        keyInput.PlaceholderText = "WRONG KEY!"
+        task.wait(1)
+        keyInput.PlaceholderText = "Enter Key..."
+    end
+end)
+
+-- =====================
+-- CREATE UI BUTTONS
+-- =====================
+local function createBtn(text, y)
+    local b = Instance.new("TextButton", main)
+    b.Size, b.Position = UDim2.new(0.9, 0, 0, 40), UDim2.new(0.05, 0, 0, y)
+    b.BackgroundColor3, b.TextColor3, b.Font, b.Text, b.TextSize = Color3.fromRGB(30, 30, 30), Color3.new(1, 1, 1), Enum.Font.Gotham, text, 14
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    return b
+end
+
+flyBtn = createBtn("FLY (F): OFF", 65)
+masterBtn = createBtn("MASTER (Q): OFF", 115)
+noclipBtn = createBtn("NOCLIP (N): OFF", 165)
+
+flyBtn.MouseButton1Click:Connect(toggleFly)
+masterBtn.MouseButton1Click:Connect(toggleMaster)
+noclipBtn.MouseButton1Click:Connect(toggleNoclip)
+
+-- =====================
+-- PLAYER LIST / STICK LOGIC
+-- =====================
+local listLabel = Instance.new("TextLabel", main)
+listLabel.Size, listLabel.Position = UDim2.new(0.9, 0, 0, 30), UDim2.new(0.05, 0, 0, 220)
+listLabel.Text = "PLAYER LIST (STICK):"
+listLabel.TextColor3, listLabel.Font, listLabel.TextSize, listLabel.BackgroundTransparency = Color3.new(1,1,1), Enum.Font.Gotham, 12, 1
+
+local scroll = Instance.new("ScrollingFrame", main)
+scroll.Size, scroll.Position = UDim2.new(0.9, 0, 0, 160), UDim2.new(0.05, 0, 0, 250)
+scroll.BackgroundColor3, scroll.BorderSizePixel, scroll.CanvasSize = Color3.fromRGB(20, 20, 20), 0, UDim2.new(0, 0, 0, 0)
+scroll.ScrollBarThickness = 3
+Instance.new("UICorner", scroll)
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0, 5)
+
+local function updateList()
+    for _, v in ipairs(scroll:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player then
+            local container = Instance.new("Frame", scroll)
+            container.Size = UDim2.new(1, -10, 0, 35)
+            container.BackgroundTransparency = 1
+            
+            local nameBtn = Instance.new("TextButton", container)
+            nameBtn.Size = UDim2.new(0.65, 0, 1, 0)
+            nameBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            nameBtn.Text = plr.Name
+            nameBtn.Font, nameBtn.TextSize, nameBtn.TextColor3 = Enum.Font.Gotham, 11, Color3.new(1,1,1)
+            Instance.new("UICorner", nameBtn)
+            
+            local stickBtn = Instance.new("TextButton", container)
+            stickBtn.Size = UDim2.new(0.3, 0, 1, 0)
+            stickBtn.Position = UDim2.new(0.7, 0, 0, 0)
+            stickBtn.BackgroundColor3 = (stickyTarget == plr) and Color3.fromRGB(200, 40, 40) or Color3.fromRGB(45, 45, 45)
+            stickBtn.Text = "STICK"
+            stickBtn.Font, stickBtn.TextSize, stickBtn.TextColor3 = Enum.Font.Gotham, 10, Color3.new(1,1,1)
+            Instance.new("UICorner", stickBtn)
+
+            nameBtn.MouseButton1Click:Connect(function()
+                WHITELIST[plr.UserId] = not WHITELIST[plr.UserId]
+                nameBtn.TextColor3 = isWhitelisted(plr) and Color3.fromRGB(0, 255, 128) or Color3.new(1,1,1)
+                manageESP(masterActive)
+            end)
+
+            stickBtn.MouseButton1Click:Connect(function()
+                if stickyTarget == plr then
+                    stickyTarget = nil
+                    setNoclip(false)
+                else
+                    stickyTarget = plr
+                    setNoclip(true)
+                end
+                updateList()
+            end)
+        end
+    end
+    scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+end
+
+Players.PlayerAdded:Connect(updateList)
+Players.PlayerRemoving:Connect(updateList)
+updateList()
+
+-- =====================
+-- INPUTS
+-- =====================
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.F then toggleFly()
+    elseif input.KeyCode == Enum.KeyCode.Q then toggleMaster() 
+    elseif input.KeyCode == Enum.KeyCode.N then toggleNoclip()
+    elseif input.KeyCode == Enum.KeyCode.RightShift then
+        guiEnabled = not guiEnabled
+        mainGui.Enabled = guiEnabled
+        reopenBtn.Visible = not guiEnabled
+    end
+end)
+
+-- =====================
+-- MAIN LOOP
+-- =====================
+RunService:BindToRenderStep("LowerGenesUpdate", Enum.RenderPriority.Camera.Value + 1, function()
+    if mainGui.Enabled and masterActive then
+        FOVCircle.Visible = true
+        FOVCircle.Position = UserInputService:GetMouseLocation()
+    else
+        FOVCircle.Visible = false
+    end
+
+    local char = player.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    -- Stick Logic
+    if stickyTarget and stickyTarget.Character and stickyTarget.Character:FindFirstChild("HumanoidRootPart") then
+        local tRoot = stickyTarget.Character.HumanoidRootPart
+        root.CFrame = tRoot.CFrame * CFrame.new(0, 0, 3)
+    elseif stickyTarget then
+        stickyTarget = nil
+        setNoclip(false)
+    end
+
+    -- Fly movement
+    if flyEnabled and root:FindFirstChild("P_FlyVel") then
+        local dir = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= camera.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir -= camera.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += camera.CFrame.RightVector end
+        root.P_FlyVel.Velocity, root.P_FlyGyro.CFrame = dir * flySpeed, camera.CFrame
+    end
+
+    -- Aimbot Logic
+    if masterActive and not stickyTarget then
+        local target, shortest = nil, AIM_FOV
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and not isWhitelisted(plr) and plr.Character and plr.Character:FindFirstChild("Head") then
+                local head = plr.Character.Head
+                local pos, onScreen = camera:WorldToViewportPoint(head.Position)
+                if onScreen and isVisible(head) then
+                    local dist = (Vector2.new(pos.X, pos.Y) - UserInputService:GetMouseLocation()).Magnitude
+                    if dist < shortest then shortest, target = dist, head end
+                end
+            end
+        end
+        if target then
+            camera.CFrame = CFrame.lookAt(camera.CFrame.Position, target.Position)
+            root.CFrame = CFrame.lookAt(root.Position, Vector3.new(target.Position.X, root.Position.Y, target.Position.Z))
+        end
+    end
+end)
